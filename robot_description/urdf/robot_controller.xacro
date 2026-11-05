@@ -1,0 +1,363 @@
+<?xml version="1.0"?>
+<robot name="robot" xmlns:xacro="http://wiki.ros.org/xacro">
+    <xacro:arg name="gpu" default="true"/>
+    <xacro:property name="gpu" value="$(arg gpu)" />
+    <xacro:property name="M_PI" value="3.14159"/>
+    
+
+    <!-- <xacro:macro name="joint_trans" params="joint_name">
+        <transmission name="${joint_name}_trans">
+            <type>transmission_interface/SimpleTransmission</type>
+            <joint name="${joint_name}">
+                <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+            </joint>
+            <actuator name="${joint_name}_motor">
+                <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+        </transmission>
+    </xacro:macro>
+    <xacro:joint_trans joint_name="front_left_wheel" />
+    <xacro:joint_trans joint_name="front_right_wheel" />
+    <xacro:joint_trans joint_name="rear_left_wheel" />
+    <xacro:joint_trans joint_name="rear_right_wheel" />
+    <gazebo>
+  		<plugin name="skid_steer_drive_controller" filename="libgazebo_ros_skid_steer_drive.so">
+            <updateRate>100.0</updateRate>
+            <robotNamespace>/</robotNamespace>
+            <leftFrontJoint>front_left_wheel</leftFrontJoint>
+            <rightFrontJoint>front_right_wheel</rightFrontJoint>
+            <leftRearJoint>rear_left_wheel</leftRearJoint>
+            <rightRearJoint>rear_right_wheel</rightRearJoint>
+            <wheelSeparation>${track}</wheelSeparation>
+            <wheelDiameter>${wheel_radius * 2}</wheelDiameter>
+            <robotBaseFrame>base_link</robotBaseFrame>
+            <torque>100</torque>
+            <broadcastTF>false</broadcastTF>
+            <publishOdomTF>false</publishOdomTF>
+            <commandTopic>cmd_vel</commandTopic>
+            <odometryTopic>odom</odometryTopic>
+            <odometryFrame>odom</odometryFrame>
+  		</plugin>
+	</gazebo> -->
+    <!-- ================================================================ -->
+    <!-- Wheel friction for stair climbing -->
+    <!-- ================================================================ -->
+    <gazebo reference="front_left_wheel_link">
+        <mu1>5.0</mu1>
+        <mu2>3.0</mu2>
+        <maxVel>1.0</maxVel>
+        <minDepth>0.001</minDepth>
+    </gazebo>
+    <gazebo reference="front_right_wheel_link">
+        <mu1>5.0</mu1>
+        <mu2>3.0</mu2>
+        <maxVel>1.0</maxVel>
+        <minDepth>0.001</minDepth>
+    </gazebo>
+    <gazebo reference="rear_left_wheel_link">
+        <mu1>5.0</mu1>
+        <mu2>3.0</mu2>
+        <maxVel>1.0</maxVel>
+        <minDepth>0.001</minDepth>
+    </gazebo>
+    <gazebo reference="rear_right_wheel_link">
+        <mu1>5.0</mu1>
+        <mu2>3.0</mu2>
+        <maxVel>1.0</maxVel>
+        <minDepth>0.001</minDepth>
+    </gazebo>
+
+    <!-- ================================================================ -->
+    <!-- Skid Steer Drive: physics-based 4WD, replaces PlanarMovePlugin  -->
+    <!-- odom publishes to /gazebo_odom, FAST-LIO2 /odom is unchanged    -->
+    <!-- ================================================================ -->
+    <gazebo>
+        <plugin name="skid_steer_drive_controller" filename="libgazebo_ros_skid_steer_drive.so">
+            <updateRate>100.0</updateRate>
+            <robotNamespace>/</robotNamespace>
+            <leftFrontJoint>front_left_wheel</leftFrontJoint>
+            <rightFrontJoint>front_right_wheel</rightFrontJoint>
+            <leftRearJoint>rear_left_wheel</leftRearJoint>
+            <rightRearJoint>rear_right_wheel</rightRearJoint>
+            <wheelSeparation>0.64824</wheelSeparation>
+            <wheelDiameter>0.32832</wheelDiameter>
+            <robotBaseFrame>base_footprint</robotBaseFrame>
+            <torque>300</torque>
+            <commandTopic>cmd_vel</commandTopic>
+            <odometryTopic>gazebo_odom</odometryTopic>
+            <odometryFrame>odom</odometryFrame>
+            <broadcastTF>false</broadcastTF>
+            <publishOdomTF>false</publishOdomTF>
+        </plugin>
+    </gazebo>
+
+    <!-- IMU -->
+    <!-- <gazebo reference="imu_base">
+        <material>Gazebo/Bule</material>
+        <gravity>true</gravity>
+        <sensor name="imu_sensor" type="imu">
+            <always_on>true</always_on>
+            <update_rate>100</update_rate>
+            <visualize>true</visualize>
+            <topic>__default_topic__</topic>
+            <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+                <topicName>imu/data</topicName>
+                <bodyName>imu_base</bodyName>
+                <updateRateHZ>100.0</updateRateHZ>
+                <gaussianNoise>0.001</gaussianNoise>
+                <xyzOffset>0 0 0</xyzOffset>
+                <rpyOffset>0 0 0</rpyOffset>
+                <frameName>imu_base</frameName>
+            </plugin>
+            <pose>0 0 0 0 0 0</pose>
+        </sensor>
+    </gazebo> -->
+    <gazebo reference="imu_base">
+    <gravity>true</gravity>
+    <sensor name="imu_sensor" type="imu">
+        <always_on>true</always_on>
+        <update_rate>100</update_rate>
+        <visualize>true</visualize>
+        <topic>__default_topic__</topic>
+        <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+        <topicName>imu/data_raw</topicName>
+        <bodyName>imu_base</bodyName>
+        <updateRateHZ>100.0</updateRateHZ>
+        <gaussianNoise>0.001</gaussianNoise>
+        <xyzOffset>0 0 0</xyzOffset>
+        <rpyOffset>0 0 0</rpyOffset>
+        <frameName>imu_base</frameName>
+        <initialOrientationAsReference>false</initialOrientationAsReference>
+        <noise>
+            <type>gaussian</type>
+            <rate>
+            <mean>0.0</mean>
+            <stddev>0.000001</stddev>
+            <bias_mean>0.0000001</bias_mean>
+            <bias_stddev>0.00000001</bias_stddev>
+            </rate>
+            <accel>
+            <mean>0.0</mean>
+            <stddev>0.00001</stddev>
+            <bias_mean>0.00001</bias_mean>
+            <bias_stddev>0.000001</bias_stddev>
+            </accel>
+        </noise>
+        </plugin>
+    </sensor>
+    <material>Gazebo/Grey</material>
+    </gazebo>
+
+
+    <!-- 2D Laser -->
+    <gazebo reference="base_laser">
+        <sensor type="ray" name="base_laser_sensor">
+            <pose>0 0 0 0 0 0</pose>
+            <visualize>false</visualize>
+            <update_rate>10</update_rate>
+            <ray>
+                <scan>
+                    <horizontal>
+                        <samples>180</samples>  <!-- 180个采样点，覆盖180度 -->
+                        <resolution>1</resolution>
+                        <min_angle>-${M_PI/2}</min_angle>  <!-- -90度 -->
+                        <max_angle>${M_PI/2}</max_angle>    <!-- +90度 -->
+                    </horizontal>
+                    <vertical>
+                        <samples>1</samples>
+                        <resolution>1</resolution>
+                        <min_angle>0</min_angle>
+                        <max_angle>0</max_angle>
+                    </vertical>
+                </scan>
+                <range>
+                    <min>0.1</min>
+                    <max>10.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </ray>
+            <plugin name="gazebo_ros_laser_controller" filename="libgazebo_ros_laser.so">
+                <topicName>/scan</topicName>
+                <frameName>base_laser</frameName>
+            </plugin>
+        </sensor>
+    </gazebo>
+
+    
+    <!-- Gazebo requires the robosense_gazebo_plugins package -->
+    <gazebo reference="robosense">
+        <xacro:if value="${gpu}">
+            <sensor type="gpu_ray" name="robosense-RS16">
+                <pose>0 0 0 0 0 0</pose>
+                <visualize>false</visualize>
+                <update_rate>10</update_rate>
+                <ray>
+                    <scan>
+                        <horizontal>
+                            <samples>900</samples>
+                            <resolution>1</resolution>
+                            <min_angle>-${M_PI}</min_angle>
+                            <max_angle>${M_PI}</max_angle>
+                        </horizontal>
+                        <vertical>
+                            <samples>16</samples>
+                            <resolution>1</resolution>
+                            <min_angle>-${15.0*M_PI/180.0}</min_angle>
+                            <max_angle> ${15.0*M_PI/180.0}</max_angle>
+                        </vertical>
+                    </scan>
+                    <range>
+                        <min>0.4</min>
+                        <max>150.0</max>
+                        <resolution>0.001</resolution>
+                    </range>
+                    <noise>
+                        <type>gaussian</type>
+                        <mean>0.0</mean>
+                        <stddev>0.0</stddev>
+                    </noise>
+                </ray>
+                <plugin name="gazebo_ros_laser_controller" filename="libgazebo_ros_robosense_gpu_laser_v2.so">
+                    <topicName>/rslidar_points</topicName>
+                    <frameName>robosense</frameName>
+                    <min_range>0.1</min_range>
+                    <max_range>30.0</max_range>
+                    <!-- <max_range>150.0</max_range> -->
+                    <gaussianNoise>0.008</gaussianNoise>
+                </plugin>
+            </sensor>
+        </xacro:if>
+        <xacro:unless value="${gpu}">
+            <sensor type="ray" name="robosense-RS16">
+                <pose>0 0 0 0 0 0</pose>
+                <visualize>false</visualize>
+                <update_rate>10</update_rate>
+                <ray>
+                    <scan>
+                        <horizontal>
+                            <samples>900</samples>
+                            <resolution>1</resolution>
+                            <min_angle>-${M_PI}</min_angle>
+                            <max_angle>${M_PI}</max_angle>
+                        </horizontal>
+                        <vertical>
+                            <samples>16</samples>
+                            <resolution>1</resolution>
+                            <min_angle>-${15.0*M_PI/180.0}</min_angle>
+                            <max_angle> ${15.0*M_PI/180.0}</max_angle>
+                        </vertical>
+                    </scan>
+                    <range>
+                        <min>0.4</min>
+                        <max>151.0</max>
+                        <resolution>0.001</resolution>
+                    </range>
+                    <noise>
+                        <type>gaussian</type>
+                        <mean>0.0</mean>
+                        <stddev>0.0</stddev>
+                    </noise>
+                </ray>
+                <plugin name="gazebo_ros_laser_controller" filename="libgazebo_ros_robosense_laser_v2.so">
+                    <topicName>/rslidar_points</topicName>
+                    <frameName>robosense</frameName>
+                    <min_range>0.1</min_range>
+                    <max_range>30.0</max_range>
+                    <!-- <max_range>151.0</max_range> -->
+                    <gaussianNoise>0.008</gaussianNoise>
+                </plugin>
+            </sensor>
+        </xacro:unless>
+    </gazebo>
+
+
+    <gazebo>
+        <plugin name="gps_controller" filename="libhector_gazebo_ros_gps.so">
+        <updateRate>40</updateRate>
+        <visualize>false</visualize>
+        <bodyName>base_link</bodyName>
+        <frameId>base_link</frameId>
+        <topicName>navsat/fix</topicName>
+        <velocityTopicName>navsat/vel</velocityTopicName>
+        <referenceLatitude>$(optenv GAZEBO_WORLD_LAT 35.279965251124594)</referenceLatitude>
+        <referenceLongitude>$(optenv GAZEBO_WORLD_LON 113.9474111500881)</referenceLongitude>
+        <referenceHeading>0</referenceHeading>
+        <referenceAltitude>0</referenceAltitude>
+        <drift>0.000000001 0.00000001 0.00000001</drift>
+        </plugin>
+    </gazebo>
+
+    <gazebo reference="camera_link">
+
+        <!-- 左目 -->
+        <sensor type="camera" name="left_sensor">
+            <always_on>true</always_on>
+            <update_rate>10</update_rate>
+            <pose>0 0 0 0 0 0</pose>
+            <camera>
+                <horizontal_fov>1.50098</horizontal_fov>
+                <image>
+                    <width>1280</width>
+                    <height>720</height>
+                    <format>R8G8B8</format>
+                </image>
+            </camera>
+
+            <plugin name="left_camera_plugin" filename="libgazebo_ros_camera.so">
+                <cameraName>camera/left</cameraName>
+                <imageTopicName>image_raw</imageTopicName>
+                <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+                <frameName>camera_left_optical_frame</frameName>
+            </plugin>
+        </sensor>
+
+        <!-- 右目 -->
+        <sensor type="camera" name="right_sensor">
+            <always_on>true</always_on>
+            <update_rate>10</update_rate>
+            <pose>0.095 0 0 0 0 0</pose>
+            <camera>
+                <horizontal_fov>1.50098</horizontal_fov>
+                <image>
+                    <width>1280</width>
+                    <height>720</height>
+                    <format>R8G8B8</format>
+                </image>
+            </camera>
+            <plugin name="right_camera_plugin" filename="libgazebo_ros_camera.so">
+                <cameraName>camera/right</cameraName>
+                <imageTopicName>image_raw</imageTopicName>
+                <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+                <frameName>camera_right_optical_frame</frameName>
+            </plugin>
+        </sensor>
+
+        <!-- 深度相机 -->
+        <sensor type="depth" name="depth_sensor">
+            <always_on>true</always_on>
+            <update_rate>10</update_rate>
+            <!-- <pose>0.095 0 0 0 0 0</pose> -->
+            <camera>
+                <horizontal_fov>1.50098</horizontal_fov>
+                <image>
+                    <width>1280</width>
+                    <height>720</height>
+                </image>
+            </camera>
+
+            <plugin name="depth_camera_plugin" filename="libgazebo_ros_depth_camera.so">
+                <cameraName>camera/</cameraName>
+                <imageTopicName>image_raw</imageTopicName>
+                <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+                <frameName>camera_depth_optical_frame</frameName>
+            </plugin>
+        </sensor>
+
+    </gazebo>
+</robot>

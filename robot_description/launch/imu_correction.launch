@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- IMU数据修正节点 -->
+    <node name="imu_corrector" pkg="robot_description" type="imu_correction_node.py" output="screen">
+        <param name="smoothing_window" value="10" />
+        <param name="max_history" value="50" />
+    </node>
+
+</launch>

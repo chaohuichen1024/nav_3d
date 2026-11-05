@@ -1,0 +1,9 @@
+<launch>
+    <node name="tf_bridge_node" pkg="fast_lio" type="tf_bridge_node.py" output="screen">
+        <param name="odom_topic" type="string" value="/Odometry" />
+        <param name="parent_frame_id" type="string" value="map" />
+        <param name="odom_frame_id" type="string" value="odom" />
+        <param name="base_footprint_frame_id" type="string" value="base_footprint" />
+        <param name="imu_frame_id" type="string" value="imu_base" />
+    </node>
+</launch>

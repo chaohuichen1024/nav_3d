@@ -1,0 +1,10 @@
+resolution: 0.5
+min_points_per_voxel: 3
+min_cluster_voxels: 4
+input_pcd_path: ""
+load_pcd_on_start: false
+pointcloud_topic: "/cloud_registered"
+octomap_topic: "/octomap"
+occupied_voxels_topic: "/occupied_voxels"
+downsample_leaf_size: 0.1
+realtime_mode: true

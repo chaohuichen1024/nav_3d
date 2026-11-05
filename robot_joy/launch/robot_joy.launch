@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- 启动手柄驱动 -->
+    <node name="joy_node" pkg="joy" type="joy_node" output="screen">
+        <param name="dev" value="/dev/input/js1" />
+        <param name="deadzone" value="0.05" />
+        <param name="autorepeat_rate" value="20.0" />
+    </node>
+
+    <!-- 手柄：手动开车 + 三维导航点记录/选点导航（配合 octo_planner_3d） -->
+    <node name="robot_joy_node" pkg="robot_joy" type="robot_joy.py" output="screen">
+        <param name="axis_linear" value="1" />
+        <param name="axis_angular" value="3" />
+        <param name="scale_linear" value="0.5" />
+        <param name="scale_angular" value="0.8" />
+        <param name="map_frame" value="map" />
+        <param name="point_file" value="$(find robot_center)/yaml/nav_points_3d.yaml" />
+
+        <!-- 定位与导航接口（FAST-LIO2 + octo_planner_3d） -->
+        <param name="odom_topic" value="/odom" />
+        <param name="cmd_vel_topic" value="/cmd_vel" />
+        <param name="goal_topic" value="/global_planner/goal_pose" />
+        <param name="stop_topic" value="/navigation/stop" />
+    </node>
+</launch>

@@ -1,0 +1,203 @@
+<launch>
+    <!-- 离线 3D 导航（SCAN-Planner 局部规划版）
+         与 offline_3d_nav.launch 的区别：只把局部规划从 DWA 换成 SCAN-Planner，
+         定位（FAST-LIO2）、离线八叉树、3D A* 全局规划完全一致。
+         offline_3d_nav.launch（DWA 版）与 local_planner 源码保持不动，两个入口可任意切换。
+
+         运行：
+           roslaunch octo_planner_3d offline_3d_nav_scan.launch
+           roslaunch octo_planner_3d offline_3d_nav_scan.launch soft_gl:=false  # 硬件 GL 正常时的加速选项
+         默认 soft_gl=true（软件渲染）：本机 NVIDIA 570 驱动有 GL shader JIT bug，
+         RViz 用硬件 GL 会直接段错误退出（exit code -11）。
+
+         数据流：
+           FAST-LIO2  => /Odometry (IMU 位姿, frame=map) + /cloud_registered (frame=map)
+           tf_bridge  => /odom (base_footprint 位姿) + TF map->odom->base_footprint
+           global_planner => /global_planner/path (3D A*)
+           SCAN 把 /global_planner/path 当成参考路径 (navi_mode=3) 做局部避障，
+           轨迹由 closed_loop_controller 跟踪后发 /cmd_vel。
+    -->
+    <arg name="sensor" default="robosense" />
+    <arg name="rviz" default="true" />
+    <arg name="map_pcd" default="/home/robot/robot_slam/src/robot_slam/fast_lio2/Log/pcd/scans.pcd" />
+    <arg name="octomap_resolution" default="0.2" />
+    <arg name="rviz_args" default="--disable-anti-aliasing --opengl 210" />
+    <arg name="soft_gl" default="true" />
+
+    <!-- ============ 机器人足迹（依据 robot_description/urdf/robot_description.xacro）============
+         base_link 碰撞盒 1.128 x 0.78937 x 0.222，位于 base_footprint 上方 0.15984；
+         IMU 相对 base_link (0.265, 0, 0.5355)，即相对 base_footprint 高约 0.695。
+         SCAN 原始模型是「沿航向前后各偏移 offset 的两个圆柱」，这里换成两个长方体：
+         每个长方体 0.564 x 0.789，中心沿航向各偏移 0.282，两块拼起来刚好覆盖整车 1.128 x 0.789。
+         box_inflation_radius 是世界系圆盘膨胀（额外安全余量），在 OBB 精确判定之外再留一圈。
+         若 SCAN 频繁报「全局路径在障碍里」，先把 box_inflation_radius 降到 0.0 再排查。 -->
+    <arg name="robot_length" default="1.128" />
+    <arg name="robot_width" default="0.789" />
+    <arg name="footprint_box_length" default="$(eval arg('robot_length') / 2.0)" />
+    <arg name="footprint_box_offset" default="$(eval arg('robot_length') / 4.0)" />
+    <arg name="footprint_box_inflation" default="0.05" />
+
+    <!-- ============ 越障能力（轮式：能越过的当平地，越不过的当障碍）============
+         imu_height：机器人参考平面（= 位姿话题 /Odometry，即 IMU）离地高度。
+                     由 URDF 得 base_footprint->base_link 0.15984，IMU 相对 base_link 0.5355，
+                     0.15984 + 0.5355 = 0.69534。换传感器/装法后按实际值改。
+         max_climb_height：轮子能滚过的最大凸起高度，由轮半径决定（URDF wheel_radius=0.16416）。
+                     刚性轮无悬架时保守取 wheel_radius 的一半 ≈ 0.08；
+                     想更激进可到 0.10~0.12（约 0.7*R），但会更容易在台阶处托底。
+         这两个值只在下面推导 obstacles_inflation_z_up 时使用。 -->
+    <arg name="imu_height" default="0.695" />
+    <arg name="max_climb_height" default="0.08" />
+
+    <!-- ============ 速度限制 ============ -->
+    <arg name="max_vel" default="0.75" />
+    <arg name="max_acc" default="0.5" />
+    <arg name="max_vyaw" default="1.5" />
+    <arg name="max_vyaw_limit" default="2.0" />
+
+    <!-- 1) FAST-LIO2 定位：提供 /Odometry 与 /cloud_registered，并由 tf_bridge 转出 /odom 和 TF -->
+    <include file="$(find fast_lio)/launch/mapping_$(arg sensor).launch">
+        <arg name="rviz" value="false" />
+    </include>
+
+    <!-- 必须放在 include 之后：禁止 FAST-LIO2 退出时把 Log/pcd/scans.pcd 覆盖掉 -->
+    <param name="pcd_save/pcd_save_en" value="false" />
+
+    <!-- 2) 离线地图：启动时把 PCD 转成八叉树并冻结。 -->
+    <node name="octomap_builder" pkg="octo_planner_3d" type="octomap_builder_node" output="screen">
+        <rosparam command="load" file="$(find octo_planner_3d)/config/octomap_builder_params.yaml" />
+        <param name="resolution" type="double" value="$(arg octomap_resolution)" />
+        <param name="input_pcd_path" type="string" value="$(arg map_pcd)" />
+        <param name="load_pcd_on_start" type="bool" value="true" />
+        <param name="realtime_mode" type="bool" value="false" />
+        <param name="pointcloud_topic" type="string" value="/offline_map_input_disabled" />
+    </node>
+
+    <!-- 3) 全局规划：3D A*，加载上面冻结的离线八叉树，输出 /global_planner/path -->
+    <node name="global_planner" pkg="octo_planner_3d" type="global_planner_node" output="screen">
+        <rosparam command="load" file="$(find octo_planner_3d)/config/global_planner_params.yaml" />
+    </node>
+
+    <!-- ============ 4) SCAN-Planner 局部规划（替换 DWA）============
+         scan_replan_fsm 与 closed_loop_controller 都从全局参数 /body_pose_topic 取机器人位姿话题。
+         这里用 /Odometry（IMU 位姿，比 base_footprint 高约 0.695 m）：必须高于地面，
+         否则 obstacles_inflation_z_up 会把地板自身膨胀到机器人参考平面，导致全程误判碰撞。 -->
+    <param name="body_pose_topic" value="/Odometry" type="str" />
+
+    <node pkg="scan_planner" name="scan_planner_node" type="scan_planner_node" output="screen" clear_params="true">
+        <!-- 输入话题对接本项目的现有话题 -->
+        <remap from="/grid_map/body_pose" to="/Odometry" />
+        <remap from="/grid_map/sensor_pose" to="/Odometry" />
+        <remap from="/grid_map/cloud" to="/cloud_registered" />
+        <!-- navi_mode=3：把全局 A* 路径当作参考路径跟踪 -->
+        <remap from="/initial_path" to="/global_planner/path" />
+
+        <!-- 传感器：激光雷达，点云已在 map 世界系，无需外参 -->
+        <param name="grid_map/sensor_type" value="lidar" type="str" />
+        <param name="grid_map/cloud_is_world" value="true" type="bool" />
+        <param name="grid_map/need_extrinsic" value="false" type="bool" />
+        <param name="grid_map/frame_id" value="map" type="str" />
+        <param name="grid_map/sliding_map_frame_id" value="sliding_map" type="str" />
+        <!-- 仅决定滑动窗口初始位置，之后会随 body_pose 重定心 -->
+        <param name="grid_map/ground_height" value="-2.5" type="double" />
+
+        <!-- fsm：3 = 参考路径跟踪 -->
+        <param name="fsm/navi_mode" value="3" type="int" />
+        <param name="fsm/thresh_replan" value="1.0" type="double" />
+        <param name="fsm/thresh_no_replan" value="0.1" type="double" />
+        <param name="fsm/planning_horizon" value="3.5" type="double" />
+        <param name="fsm/emergency_time_" value="1.0" type="double" />
+        <param name="fsm/fail_safe" value="true" type="bool" />
+        <param name="fsm/max_replan_fail_count" value="1000" type="int" />
+
+        <!-- 局部滑动窗口 3D 栅格图 -->
+        <param name="grid_map/resolution" value="0.05" />
+        <param name="grid_map/sliding_map_size_x" value="10.0" />
+        <param name="grid_map/sliding_map_size_y" value="10.0" />
+        <param name="grid_map/sliding_map_size_z" value="5.0" />
+        <param name="grid_map/map_sliding_thresh" value="0.2" />
+
+        <!-- 足迹：双长方体（轮式底盘） -->
+        <param name="grid_map/footprint_model" value="box" type="str" />
+        <param name="grid_map/box_length" value="$(arg footprint_box_length)" type="double" />
+        <param name="grid_map/box_width" value="$(arg robot_width)" type="double" />
+        <param name="grid_map/box_offset" value="$(arg footprint_box_offset)" type="double" />
+        <param name="grid_map/box_inflation_radius" value="$(arg footprint_box_inflation)" type="double" />
+
+        <!-- ============ 越障能力：决定局部规划把什么当障碍 ============
+             轮式机器人的语义是「轮子能上去的就上，上不去的就当障碍绕开」。
+             参考平面在被 body_pose(/Odometry) 指定的高度上，记 H = imu_height，
+             则从占据体素向上膨胀 z_up 后：
+               障碍顶面 + z_up >= H  -> 判为障碍（避让）
+               障碍高度  < H - z_up  -> 视为平地（直接越过）
+             所以只要令
+               z_up = imu_height - max_climb_height
+             就得到「越障高度 = max_climb_height」这个语义，不要手调 z_up。
+             注意「地面余量」恰好也等于 max_climb_height：地面被抬高超出一个
+             越障高度就说明那已经不是能越过的凸起了，判成障碍正是想要的。
+             想更保守/更激进就只改 max_climb_height。 -->
+        <param name="grid_map/obstacles_inflation_z_up"
+               value="$(eval arg('imu_height') - arg('max_climb_height'))" type="double" />
+        <param name="grid_map/obstacles_inflation_z_down" value="0.1" type="double" />
+        <!-- body_pose 与全局路径 z 的高度差：waypoint_z = path_z + body_height。
+             参考平面必须始终高于地面，且「平面 - 地面」要等于 z_up + max_climb_height，
+             所以这里直接取 imu_height，让整条轨迹的地面余量都等于 max_climb_height。
+             注意必须 body_height > obstacles_inflation_z_up，否则路径远端的地面会被
+             自己膨胀出的层盖住，局部 A* 会全程报 "a star error"。
+             该值是否准确不必猜：scan_planner_node 在收到全局路径时会打印
+               [height check] ... implied_body_height=xxx mismatch=xxx
+             implied_body_height 就是当前场景下应该填的值；mismatch 为正则把这里调大。 -->
+        <param name="grid_map/body_height" value="$(arg imu_height)" type="double" />
+
+        <!-- 概率更新与射线长度 -->
+        <param name="grid_map/p_hit" value="0.85" />
+        <param name="grid_map/p_miss" value="0.30" />
+        <param name="grid_map/p_min" value="0.12" />
+        <param name="grid_map/p_max" value="0.98" />
+        <param name="grid_map/p_occ" value="0.80" />
+        <param name="grid_map/max_ray_length" value="5.0" />
+        <param name="grid_map/vis_height" value="0.3" type="double" />
+
+        <!-- 前端 B 样条参数 -->
+        <param name="manager/max_vel" value="$(arg max_vel)" type="double" />
+        <param name="manager/max_acc" value="$(arg max_acc)" type="double" />
+        <param name="manager/max_jerk" value="4" type="double" />
+        <param name="manager/control_points_distance" value="0.2" type="double" />
+        <param name="manager/feasibility_tolerance" value="0.5" type="double" />
+        <param name="manager/planning_horizon" value="3.5" type="double" />
+
+        <!-- 后端优化 -->
+        <param name="optimization/lambda_smooth" value="1.0" type="double" />
+        <param name="optimization/lambda_collision" value="1.0" type="double" />
+        <param name="optimization/lambda_feasibility" value="0.1" type="double" />
+        <param name="optimization/lambda_fitness" value="1.0" type="double" />
+        <param name="optimization/dist0" value="0.2" type="double" />
+        <param name="optimization/max_vel" value="$(arg max_vel)" type="double" />
+        <param name="optimization/vel_tolerance" value="1.0" type="double" />
+        <param name="optimization/max_acc" value="$(arg max_acc)" type="double" />
+        <param name="optimization/acc_tolerance" value="1.0" type="double" />
+    </node>
+
+    <!-- ============ 5) 轨迹跟踪：差速轮式底盘 ============
+         diff_drive=true 时禁用横向速度 linear.y（差速底盘无法侧移），
+         横向偏差全靠 yaw 对准处理；同时用 max_vyaw_limit 放宽偏航角速度上限
+         （SCAN 原版硬编码 1.0 rad/s，是给四足用的）。 -->
+    <param name="closed_loop_controller/time_forward" value="0.8" type="double" />
+    <param name="closed_loop_controller/heading_error_threshold" value="0.8" type="double" />
+    <param name="closed_loop_controller/kp_pos" value="0.8" type="double" />
+    <param name="closed_loop_controller/kp_yaw" value="1.5" type="double" />
+    <param name="closed_loop_controller/max_vx" value="$(arg max_vel)" type="double" />
+    <param name="closed_loop_controller/max_vy" value="0.0" type="double" />
+    <param name="closed_loop_controller/max_vyaw" value="$(arg max_vyaw)" type="double" />
+    <param name="closed_loop_controller/max_vyaw_limit" value="$(arg max_vyaw_limit)" type="double" />
+    <param name="closed_loop_controller/finish_dist" value="0.15" type="double" />
+    <param name="closed_loop_controller/diff_drive" value="true" type="bool" />
+
+    <node pkg="scan_planner" name="closed_loop_controller" type="closed_loop_controller" output="screen" />
+
+    <group if="$(arg rviz)">
+        <node name="rviz" pkg="rviz" type="rviz" args="$(arg rviz_args) -d $(find octo_planner_3d)/config/octo_planner.rviz" output="screen">
+            <env if="$(arg soft_gl)" name="__GLX_VENDOR_LIBRARY_NAME" value="mesa" />
+            <env if="$(arg soft_gl)" name="LIBGL_ALWAYS_SOFTWARE" value="1" />
+        </node>
+    </group>
+</launch>

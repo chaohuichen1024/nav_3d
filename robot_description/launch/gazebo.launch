@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- 机器人仿真启动文件 -->
+    
+    <!-- 仿真时间 -->
+    <param name="/use_sim_time" value="true" />
+
+    <!-- 机器人模型参数 -->
+    <arg name="node_start_delay" default="15.0" />
+    <arg name="model_xacro" default="$(find robot_description)/urdf/robot.gazebo.xacro" />
+    <param name="robot_description" command="$(find xacro)/xacro $(arg model_xacro)" />
+    
+    <!-- 机器人初始位置参数 -->
+    <arg name="x" default="43.65" />
+    <arg name="y" default="-10.82" />
+    <arg name="z" default="0.0" />
+    <arg name="roll" default="0.0" />
+    <arg name="pitch" default="0.0" />
+    <arg name="yaw" default="0.0" />
+    
+    <!-- 机器人状态发布 -->
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
+    <!-- Gazebo仿真环境 -->
+    <include file="$(find gazebo_ros)/launch/empty_world.launch"> 
+        <arg name="world_name" value="$(find robot_description)/worlds/mrs_city.world" /> 
+    </include>
+
+    <!-- <include file="$(find robot_description)/launch/imu_correction.launch"/>  -->
+
+    
+    <!-- 在Gazebo中生成机器人模型 -->
+    <node pkg="gazebo_ros" type="spawn_model" name="spawn_model"
+        launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@'"
+        args="-urdf -model robot -param robot_description 
+                -x $(arg x) -y $(arg y) -z $(arg z) 
+                -R $(arg roll) -P $(arg pitch) -Y $(arg yaw)" />
+
+    <!-- RViz可视化 -->
+    <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find robot_description)/rviz/robot_simulation.rviz" /> -->
+
+</launch>

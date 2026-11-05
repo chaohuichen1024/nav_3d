@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+
+<robot name="robot"  xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <xacro:arg name="robot_namespace" default="/" /> 
+
+    <!-- Property Encapsulation -->
+    <xacro:property name="M_PI" value="3.14159"/>
+
+    <xacro:property name="base_link_x_size" value="1.128" />
+    <xacro:property name="base_link_y_size" value="0.78937" />
+    <xacro:property name="base_link_z_size" value="0.222" />
+
+    <xacro:property name="wheel_mass" value="3" />
+    <xacro:property name="wheel_length" value="0.14113" />
+    <xacro:property name="wheel_radius" value="0.16416" />
+    <xacro:property name="wheelbase" value="0.672" />
+    <xacro:property name="track" value="0.64824" />
+    <xacro:property name="wheel_vertical_offset" value="0.00432" />
+    
+    <!-- Chassis -->
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://robot_description/meshes/base_link.STL" />
+            </geometry>
+        </visual>
+        <collision>
+            <origin xyz="0 0 ${base_link_z_size/2}" rpy="0 0 0" />
+            <geometry>
+                <box size="${base_link_x_size} ${base_link_y_size} ${base_link_z_size}"/>
+            </geometry>
+        </collision>
+    </link>
+    <link name="inertial_link">
+        <inertial>
+            <mass value="40" />
+            <origin xyz="0.0 0.0 0.0" />
+            <inertia ixx="3.791" ixy="-0.012" ixz="0.007" iyy="7.879" iyz="0.023" izz="9.703" />
+        </inertial>
+    </link>
+    <joint name="inertial_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <parent link="base_link" />
+        <child link="inertial_link" />
+    </joint>
+
+    <link name="base_footprint"/>
+    <joint name="base_footprint_joint" type="fixed">
+        <origin xyz="0 0 0.15984" rpy="0 0 0" />
+        <parent link="base_footprint" />
+        <child link="base_link" />
+    </joint>
+    
+    <!-- Inertial -->
+    <xacro:include filename="$(find robot_description)/urdf/inertial.xacro" />
+
+    <!-- Wheels -->
+    <xacro:include filename="$(find robot_description)/urdf/robot_wheel.xacro" />
+    
+    <!-- IMU -->
+    <xacro:include filename="$(find robot_description)/urdf/robot_imu.xacro" />
+    <xacro:imu sensor_name="imu" parent_link="base_link">
+        <origin xyz="0.265 0 0.5355" rpy="0 0 0"/>
+    </xacro:imu>
+
+    <!-- LiDAR -->
+    <xacro:include filename="$(find robot_description)/urdf/robot_lidar.xacro"/>
+    <xacro:robosense name="robosense" parent_link="base_link">
+        <origin xyz="0.265 0 0.5725" rpy="0 0 0" />
+    </xacro:robosense>
+
+    <!-- 2D Laser -->
+    <xacro:include filename="$(find robot_description)/urdf/robot_2d_laser.xacro"/>
+    <xacro:base_2d_laser name="base_laser" parent_link="base_link">
+        <origin xyz="${base_link_x_size/2} 0 0.15" rpy="0 0 0" />
+    </xacro:base_2d_laser>
+
+    <!-- RealSense D455 Camera - Using Official Package -->
+    <xacro:include filename="$(find realsense2_description)/urdf/_d455.urdf.xacro" />
+    <xacro:sensor_d455 parent="base_link" use_nominal_extrinsics="true">
+        <origin xyz="0.55 0 0.2" rpy="0 0 0" />
+    </xacro:sensor_d455>
+</robot>

@@ -1,0 +1,21 @@
+# Goal: 开始多点导航任务
+string task_id  # 任务ID
+bool from_current_pose  # 是否从当前位置开始
+int32 start_index  # 起始点索引（可选）
+int32 end_index  # 结束点索引（可选）
+
+---
+# Result: 任务执行结果
+bool success  # 整体是否成功
+string message  # 结果消息
+int32 completed_points  # 完成的目标点数量
+int32 total_points  # 总目标点数量
+float32 total_distance  # 总行驶距离
+
+---
+# Feedback: 任务执行过程中的反馈
+int32 current_point_index  # 当前执行的点索引
+string current_point_id  # 当前点ID
+string status  # 状态信息（NAVIGATING, ACTION_EXECUTING, PAUSED, etc.）
+float32 progress  # 进度百分比
+geometry_msgs/PoseStamped current_pose  # 当前位置

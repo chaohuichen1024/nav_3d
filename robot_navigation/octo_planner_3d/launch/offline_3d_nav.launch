@@ -1,0 +1,54 @@
+<launch>
+    <!-- 离线 3D 导航：预先建好的 PCD 地图 + FAST-LIO2 实时定位 + 3D A* 全局规划 + DWA 局部规划 -->
+    <arg name="sensor" default="robosense" />
+    <arg name="rviz" default="true" />
+    <arg name="map_pcd" default="/home/robot/robot_slam/src/robot_slam/fast_lio2/Log/pcd/scans.pcd" />
+    <arg name="octomap_resolution" default="0.2" />
+    <!-- RViz 启动参数。NVIDIA 驱动 570.133.07 在 Ogre 渲染时反复 SIGSEGV
+         （崩在驱动的 .glXXXXXX 着色器 JIT 段），因此默认关抗锯齿并回退到
+         OpenGL 2.1 兼容模式。若仍崩溃，可改为软件渲染排查：
+         LIBGL_ALWAYS_SOFTWARE=1 roslaunch octo_planner_3d offline_3d_nav.launch -->
+    <arg name="rviz_args" default="--disable-anti-aliasing --opengl 210" />
+    <!-- 设为 true 时用 Mesa 软件渲染启动 RViz，彻底绕开 NVIDIA 驱动：
+         用法：roslaunch octo_planner_3d offline_3d_nav.launch soft_gl:=true
+         （此驱动 570.133.07 在 Ogre 渲染时会反复 SIGSEGV，崩在其 memfd 的
+          .glXXXXXX 代码段里，8 次崩溃全部落在同一偏移 0x1cea/0x1cee） -->
+    <arg name="soft_gl" default="false" />
+
+    <!-- 1) FAST-LIO2 定位：提供 /Odometry 与 /cloud_registered，并由 tf_bridge 转出 /odom 和 TF -->
+    <include file="$(find fast_lio)/launch/mapping_$(arg sensor).launch">
+        <arg name="rviz" value="false" />
+    </include>
+
+    <!-- 必须放在 include 之后：禁止 FAST-LIO2 退出时把 Log/pcd/scans.pcd 覆盖掉 -->
+    <param name="pcd_save/pcd_save_en" value="false" />
+
+    <!-- 2) 离线地图：启动时把 PCD 转成八叉树并冻结。
+         pointcloud_topic 指向不存在的话题，避免实时点云触发全图重建
+         （离线模式下每个回调都会重建整张图）。 -->
+    <node name="octomap_builder" pkg="octo_planner_3d" type="octomap_builder_node" output="screen">
+        <rosparam command="load" file="$(find octo_planner_3d)/config/octomap_builder_params.yaml" />
+        <param name="resolution" type="double" value="$(arg octomap_resolution)" />
+        <param name="input_pcd_path" type="string" value="$(arg map_pcd)" />
+        <param name="load_pcd_on_start" type="bool" value="true" />
+        <param name="realtime_mode" type="bool" value="false" />
+        <param name="pointcloud_topic" type="string" value="/offline_map_input_disabled" />
+    </node>
+
+    <!-- 3) 全局规划：3D A*，加载上面冻结的离线八叉树 -->
+    <node name="global_planner" pkg="octo_planner_3d" type="global_planner_node" output="screen">
+        <rosparam command="load" file="$(find octo_planner_3d)/config/global_planner_params.yaml" />
+    </node>
+
+    <!-- 4) 局部规划：DWA，跟踪全局路径并用实时点云避障 -->
+    <node name="local_planner" pkg="octo_planner_3d" type="local_planner_node" output="screen">
+        <rosparam command="load" file="$(find octo_planner_3d)/config/local_planner_params.yaml" />
+    </node>
+
+    <group if="$(arg rviz)">
+        <node name="rviz" pkg="rviz" type="rviz" args="$(arg rviz_args) -d $(find octo_planner_3d)/config/octo_planner.rviz" output="screen">
+            <env if="$(arg soft_gl)" name="__GLX_VENDOR_LIBRARY_NAME" value="mesa" />
+            <env if="$(arg soft_gl)" name="LIBGL_ALWAYS_SOFTWARE" value="1" />
+        </node>
+    </group>
+</launch>

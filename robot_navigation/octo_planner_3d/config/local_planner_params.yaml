@@ -1,0 +1,68 @@
+max_speed: 1.0
+min_speed: -0.15
+max_angular_speed: 3.0
+min_angular_speed: -3.0
+acceleration: 5.0
+angular_acceleration: 3.0
+dt: 0.1
+predict_time: 2.0
+# 到点判定用水平距离；goal_z_tolerance 用“路径 z 与 odom z 的相对偏置”做跨层保护
+goal_tolerance: 0.30
+goal_z_tolerance: 0.30
+# 水平进入容差圈但高差不合格时，机器人静止这么久就结束本次导航（终点在另一层/悬空薄板上）
+goal_xy_hold_time: 2.0
+lookahead_distance: 1.20
+robot_radius: 0.65
+weight_heading: 0.35
+weight_distance: 0.35
+weight_velocity: 0.15
+weight_path: 0.35
+num_speed_samples: 11
+num_angular_samples: 15
+allow_no_obstacle_info: false
+decel_start: 2.0
+decel_end: 0.6
+min_approach_speed: 0.12
+min_tracking_speed: 0.08
+path_equality_tolerance: 0.05
+# 全局路径剪枝后相邻点间距可达数米，跟踪前先按该步长插值加密，
+# 否则前视点会直接跳到几米外的拐点，横向偏差评估也失去分辨率
+path_resample_step: 0.25
+odom_velocity_filter_alpha: 0.35
+
+max_traversable_slope_deg: 35.0
+surface_normal_radius: 0.35
+terrain_fit_radius: 2.0
+min_terrain_points: 20
+terrain_fit_max_error: 0.15
+slope_enter_angle_deg: 5.0
+slope_exit_angle_deg: 3.0
+# 与当前路径点相比，前视路径点至少高/低 25 cm 才提前进入坡面模式。
+# 该值略大于 0.20 m OctoMap 分辨率，避免二楼平面单格 Z 差误判为上坡。
+path_elevation_change_threshold: 0.25
+min_climb_speed: 0.20
+max_climb_speed: 0.50
+max_climb_angular_speed: 0.50
+
+control_frequency: 15.0
+downsample_leaf_size: 0.10
+local_cloud_processing_frequency: 5.0
+require_fresh_obstacle_data: true
+odom_timeout: 0.5
+obstacle_timeout: 1.0
+use_octomap_for_local_collision: false
+local_octomap_update_interval: 1.0
+progress_timeout: 8.0
+progress_distance: 0.15
+commanded_motion_threshold: 0.08
+# 连续重规划超过该次数仍无法前进时，判定目标不可达并停车等待新的导航点（0 表示不限制）
+max_replan_attempts: 3
+replan_cooldown: 25.0
+
+path_topic: "/global_planner/path"
+odom_topic: "/odom"
+cloud_topic: "/cloud_registered"
+octomap_topic: "/octomap"
+cmd_vel_topic: "/cmd_vel"
+replan_topic: "/navigation/replan_request"
+map_frame: "map"

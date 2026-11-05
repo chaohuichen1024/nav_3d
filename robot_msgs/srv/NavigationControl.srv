@@ -1,0 +1,13 @@
+# 控制命令
+int8 command
+# 命令定义：
+# 1 = 开始
+# 2 = 暂停
+# 3 = 继续
+# 4 = 停止
+# 5 = 跳转到指定点
+int32 target_index  # 可选的跳转目标索引
+
+---
+bool success
+string message

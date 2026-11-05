@@ -1,0 +1,27 @@
+robot_radius: 0.75
+robot_height: 0.80
+max_traversable_slope_deg: 35.0
+max_iterations: 250000
+snap_search_radius_cells: 8
+require_ground_support: true
+strict_direct_ground_support: false
+ground_support_xy_radius_cells: 1
+ground_support_depth_cells: 2
+enable_preblocked_costmap: false
+preblocked_costmap_radius_cells: 3
+preblocked_costmap_weight: 1.5
+lowest_traversable_only: false
+z_cost_penalty_factor: 5.0
+require_ground_support_for_upward: true
+octomap_topic: "/octomap"
+odom_topic: "/odom"
+path_topic: "/global_planner/path"
+path_marker_topic: "/global_planner/path_marker"
+map_update_interval: 1.0
+min_replan_interval: 3.0
+replan_on_map_update: false
+# 建图阶段 OctoMap 会持续增删体素。对已经发布的跨楼层路径逐帧做
+# 全路径校验，会把楼梯上的瞬时/稀疏体素误判为路径失效，并在机器人
+# 行驶中改走另一条路径。保留局部进度看门狗触发的按需重规划即可。
+validate_path_on_map_update: false
+replan_topic: "/navigation/replan_request"

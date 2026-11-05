@@ -1,0 +1,19 @@
+<launch>
+    <arg name="rviz" default="true" />
+    
+    <node name="octomap_builder" pkg="octo_planner_3d" type="octomap_builder_node" output="screen">
+        <rosparam command="load" file="$(find octo_planner_3d)/config/octomap_builder_params.yaml" />
+    </node>
+
+    <node name="global_planner" pkg="octo_planner_3d" type="global_planner_node" output="screen">
+        <rosparam command="load" file="$(find octo_planner_3d)/config/global_planner_params.yaml" />
+    </node>
+
+    <node name="local_planner" pkg="octo_planner_3d" type="local_planner_node" output="screen">
+        <rosparam command="load" file="$(find octo_planner_3d)/config/local_planner_params.yaml" />
+    </node>
+
+    <group if="$(arg rviz)">
+        <node name="rviz" pkg="rviz" type="rviz" args="-d $(find octo_planner_3d)/config/octo_planner.rviz" output="screen" />
+    </group>
+</launch>

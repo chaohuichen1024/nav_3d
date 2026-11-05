@@ -1,0 +1,17 @@
+<launch>
+    <node name="octomap_builder" pkg="octo_planner_3d" type="octomap_builder_node" output="screen">
+        <param name="resolution" value="0.2" />
+        <param name="min_points_per_voxel" value="3" />
+        <param name="min_cluster_voxels" value="4" />
+        <param name="input_pcd_path" value="/home/robot/robot_slam/src/robot_slam/fast_lio2/Log/pcd/test.pcd" />
+        <param name="load_pcd_on_start" value="true" />
+    </node>
+
+    <node name="global_planner" pkg="octo_planner_3d" type="global_planner_node" output="screen">
+        <param name="robot_radius" value="0.2" />
+        <param name="max_iterations" value="250000" />
+        <param name="require_ground_support" value="true" />
+    </node>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find octo_planner_3d)/config/octo_planner.rviz" />
+</launch>
